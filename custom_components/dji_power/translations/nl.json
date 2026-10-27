@@ -3,34 +3,133 @@
     "step": {
       "user": {
         "title": "DJI Power",
-        "description": "Voer je DJI member-token en het serienummer (SN) van je device in.",
+        "description": "Hoe wil je aanmelden?",
+        "menu_options": {
+          "token": "Aanmelden met member-token (aanbevolen)",
+          "manual_ble": "Alleen Bluetooth (serienummer + pair_key handmatig)"
+        }
+      },
+      "token": {
+        "title": "Aanmelden bij DJI",
+        "description": "Plak je DJI member-token (x-member-token). Het serienummer en de Bluetooth-sleutel worden automatisch opgehaald.",
         "data": {
-          "member_token": "Member-token (x-member-token)",
-          "sn": "Serienummer (SN)"
+          "member_token": "Member-token (x-member-token)"
+        }
+      },
+      "device": {
+        "title": "Kies je apparaat",
+        "data": {
+          "sn": "Apparaat"
+        }
+      },
+      "mode": {
+        "title": "Verbindingsmodus",
+        "description": "Hoe moet Home Assistant met de Power verbinden? Je kunt dit later wijzigen via de opties.",
+        "menu_options": {
+          "mode_cloud": "Cloud (via internet)",
+          "mode_ble": "Bluetooth (rechtstreeks, geen cloud)"
+        }
+      },
+      "manual_ble": {
+        "title": "Bluetooth zonder token",
+        "description": "Voer het serienummer en de 32-tekens pair_key van je Power in.",
+        "data": {
+          "sn": "Serienummer (SN)",
+          "pair_key": "Pair key (32 hexadecimale tekens)"
+        }
+      },
+      "bluetooth_device": {
+        "title": "Bluetooth-apparaat",
+        "description": "Kies de Power met serienummer {sn} ({found} gevonden). Een adres typen kan ook (AA:BB:CC:DD:EE:FF). Let op: er kan maar één app tegelijk verbonden zijn; de DJI-app op je telefoon kan dan niet verbinden.",
+        "data": {
+          "ble_address": "Bluetooth-adres",
+          "keep_token": "Token bewaren"
+        },
+        "data_description": {
+          "keep_token": "Nodig om later naar cloud te kunnen wisselen."
+        }
+      },
+      "discovery_confirm": {
+        "title": "DJI Power gevonden",
+        "description": "Er is een DJI Power ({name}) in de buurt gevonden. Instellen?"
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw aanmelden",
+        "description": "Het DJI member-token voor {sn} is verlopen. Plak een nieuw token.",
+        "data": {
+          "member_token": "Member-token (x-member-token)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Kon niet verbinden met de DJI-cloud. Controleer je token en SN."
+      "invalid_auth": "Token ongeldig of verlopen.",
+      "cannot_connect": "Kon niet verbinden met de DJI-cloud.",
+      "no_devices": "Geen DJI Power gevonden op dit account.",
+      "invalid_pair_key": "De pair_key moet uit 32 hexadecimale tekens bestaan.",
+      "invalid_address": "Geen geldig Bluetooth-adres (AA:BB:CC:DD:EE:FF).",
+      "wrong_account": "Dit account bevat dit apparaat niet."
     },
     "abort": {
-      "already_configured": "Dit device is al geconfigureerd."
+      "already_configured": "Dit apparaat is al geconfigureerd.",
+      "not_supported": "Dit is geen ondersteunde DJI Power.",
+      "reauth_successful": "Opnieuw aanmelden geslaagd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DJI Power-opties",
+        "description": "Kies de verbindingsmodus. Bluetooth vereist een adres; cloud vereist een bewaard token.",
+        "data": {
+          "mode": "Verbindingsmodus",
+          "ble_address": "Bluetooth-adres"
+        }
+      }
+    },
+    "error": {
+      "no_token": "Er is geen token bewaard; cloud is niet beschikbaar.",
+      "no_pair_key": "Er is geen pair_key bekend; Bluetooth is niet beschikbaar.",
+      "invalid_address": "Geen geldig Bluetooth-adres (AA:BB:CC:DD:EE:FF)."
+    }
+  },
+  "selector": {
+    "mode": {
+      "options": {
+        "cloud": "Cloud (via internet)",
+        "bluetooth": "Bluetooth (rechtstreeks, geen cloud)"
+      }
     }
   },
   "entity": {
     "sensor": {
-      "battery": { "name": "Accu" },
-      "output": { "name": "Uitgaand vermogen" },
-      "input": { "name": "Ingaand vermogen" },
-      "temperature": { "name": "Batterijtemperatuur" },
-      "remaining": { "name": "Resterende tijd" },
-      "light_brightness": { "name": "Lamp helderheid" }
+      "battery": {
+        "name": "Accu"
+      },
+      "output": {
+        "name": "Uitgaand vermogen"
+      },
+      "input": {
+        "name": "Ingaand vermogen"
+      },
+      "temperature": {
+        "name": "Batterijtemperatuur"
+      },
+      "remaining": {
+        "name": "Resterende tijd"
+      },
+      "light_brightness": {
+        "name": "Lamp helderheid"
+      }
     },
     "binary_sensor": {
-      "charging": { "name": "Laadt" }
+      "charging": {
+        "name": "Laadt"
+      }
     },
     "light": {
-      "light": { "name": "Lamp" }
+      "light": {
+        "name": "Lamp"
+      }
     }
   }
 }

@@ -3,34 +3,133 @@
     "step": {
       "user": {
         "title": "DJI Power",
-        "description": "Enter your DJI member token and the serial number (SN) of your device.",
+        "description": "How do you want to sign in?",
+        "menu_options": {
+          "token": "Sign in with member token (recommended)",
+          "manual_ble": "Bluetooth only (enter serial number + pair key manually)"
+        }
+      },
+      "token": {
+        "title": "Sign in to DJI",
+        "description": "Paste your DJI member token (x-member-token). The serial number and Bluetooth key are fetched automatically.",
         "data": {
-          "member_token": "Member token (x-member-token)",
-          "sn": "Serial number (SN)"
+          "member_token": "Member token (x-member-token)"
+        }
+      },
+      "device": {
+        "title": "Choose your device",
+        "data": {
+          "sn": "Device"
+        }
+      },
+      "mode": {
+        "title": "Connection mode",
+        "description": "How should Home Assistant connect to the Power? You can change this later in the options.",
+        "menu_options": {
+          "mode_cloud": "Cloud (over the internet)",
+          "mode_ble": "Bluetooth (direct, no cloud)"
+        }
+      },
+      "manual_ble": {
+        "title": "Bluetooth without token",
+        "description": "Enter the serial number and the 32-character pair key of your Power.",
+        "data": {
+          "sn": "Serial number (SN)",
+          "pair_key": "Pair key (32 hexadecimal characters)"
+        }
+      },
+      "bluetooth_device": {
+        "title": "Bluetooth device",
+        "description": "Choose the Power with serial number {sn} ({found} found). You can also type an address (AA:BB:CC:DD:EE:FF). Note: only one app can be connected at a time; the DJI app on your phone cannot connect meanwhile.",
+        "data": {
+          "ble_address": "Bluetooth address",
+          "keep_token": "Keep token"
+        },
+        "data_description": {
+          "keep_token": "Needed to switch to cloud later."
+        }
+      },
+      "discovery_confirm": {
+        "title": "DJI Power found",
+        "description": "A DJI Power ({name}) was found nearby. Set it up?"
+      },
+      "reauth_confirm": {
+        "title": "Sign in again",
+        "description": "The DJI member token for {sn} has expired. Paste a new token.",
+        "data": {
+          "member_token": "Member token (x-member-token)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to the DJI cloud. Check your token and SN."
+      "invalid_auth": "Token invalid or expired.",
+      "cannot_connect": "Could not connect to the DJI cloud.",
+      "no_devices": "No DJI Power found on this account.",
+      "invalid_pair_key": "The pair key must be 32 hexadecimal characters.",
+      "invalid_address": "Not a valid Bluetooth address (AA:BB:CC:DD:EE:FF).",
+      "wrong_account": "This account does not contain this device."
     },
     "abort": {
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "not_supported": "This is not a supported DJI Power.",
+      "reauth_successful": "Re-authentication successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DJI Power options",
+        "description": "Choose the connection mode. Bluetooth needs an address; cloud needs a stored token.",
+        "data": {
+          "mode": "Connection mode",
+          "ble_address": "Bluetooth address"
+        }
+      }
+    },
+    "error": {
+      "no_token": "No token is stored; cloud is not available.",
+      "no_pair_key": "No pair key is known; Bluetooth is not available.",
+      "invalid_address": "Not a valid Bluetooth address (AA:BB:CC:DD:EE:FF)."
+    }
+  },
+  "selector": {
+    "mode": {
+      "options": {
+        "cloud": "Cloud (over the internet)",
+        "bluetooth": "Bluetooth (direct, no cloud)"
+      }
     }
   },
   "entity": {
     "sensor": {
-      "battery": { "name": "Battery" },
-      "output": { "name": "Output power" },
-      "input": { "name": "Input power" },
-      "temperature": { "name": "Battery temperature" },
-      "remaining": { "name": "Remaining time" },
-      "light_brightness": { "name": "Light brightness" }
+      "battery": {
+        "name": "Battery"
+      },
+      "output": {
+        "name": "Output power"
+      },
+      "input": {
+        "name": "Input power"
+      },
+      "temperature": {
+        "name": "Battery temperature"
+      },
+      "remaining": {
+        "name": "Remaining time"
+      },
+      "light_brightness": {
+        "name": "Light brightness"
+      }
     },
     "binary_sensor": {
-      "charging": { "name": "Charging" }
+      "charging": {
+        "name": "Charging"
+      }
     },
     "light": {
-      "light": { "name": "Light" }
+      "light": {
+        "name": "Light"
+      }
     }
   }
 }

@@ -15,6 +15,7 @@ import threading
 import paho.mqtt.client as mqtt
 
 from . import const
+from .rest import DjiAuthError
 
 
 def make_client(client_id):
@@ -34,15 +35,18 @@ class CloudMqttReader:
     on_osd(host):   host-dict uit een method:device_osd bericht.
     on_state(host): host-dict uit een method:device_state bericht.
     on_connect_change(connected: bool): optioneel, bij (dis)connect.
+    on_auth_error(): optioneel; token ongeldig. De lus stopt dan (retry heeft geen zin).
     """
 
     def __init__(self, rest_client, on_osd=None, on_state=None,
-                 on_connect_change=None, subscribe_events=False, line=const.LINE):
+                 on_connect_change=None, subscribe_events=False, line=const.LINE,
+                 on_auth_error=None):
         self.rest = rest_client
         self.sn = rest_client.sn
         self.on_osd = on_osd
         self.on_state = on_state
         self.on_connect_change = on_connect_change
+        self.on_auth_error = on_auth_error
         self.subscribe_events = subscribe_events
         self.line = line
         self._stop = threading.Event()
@@ -106,6 +110,13 @@ class CloudMqttReader:
                 self._client = None
                 if self.on_connect_change:
                     self.on_connect_change(False)
+            except DjiAuthError:
+                if self.on_connect_change:
+                    self.on_connect_change(False)
+                print("[mqtt] token ongeldig of verlopen; opnieuw inloggen nodig")
+                if self.on_auth_error:
+                    self.on_auth_error()
+                return
             except Exception as e:
                 if self.on_connect_change:
                     self.on_connect_change(False)

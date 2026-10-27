@@ -12,12 +12,12 @@ import threading
 
 from . import config, control, normalize
 from .model import discover_ports
-from .rest import RestClient
+from .rest import DjiAuthError, RestClient
 from .mqtt import CloudMqttReader
 
 
 class DjiPowerHub:
-    def __init__(self, member_token=None, sn=None, subscribe_events=False):
+    def __init__(self, member_token=None, sn=None, subscribe_events=False, on_auth_error=None):
         creds = None
         if member_token is None or sn is None:
             creds = config.Credentials.load()
@@ -30,6 +30,7 @@ class DjiPowerHub:
             on_state=self._on_state,
             on_connect_change=self._on_connect_change,
             subscribe_events=subscribe_events,
+            on_auth_error=on_auth_error,
         )
         self._state = {}
         self._lock = threading.Lock()
@@ -75,6 +76,8 @@ class DjiPowerHub:
         """Vul de initiële state uit een REST-GET van de settings (voor de eerste MQTT-push)."""
         try:
             settings = self.rest.get_settings()
+        except DjiAuthError:
+            raise                      # ongeldig token: niet inslikken, de aanroeper moet het weten
         except Exception as e:
             print("[hub] initiële settings-GET faalde:", e)
             return None

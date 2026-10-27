@@ -38,13 +38,9 @@ class DjiPowerPortSwitch(DjiPowerEntity, SwitchEntity):
         return self._state.get(self._key) == "on"
 
     async def async_turn_on(self, **kwargs) -> None:
-        await self.hass.async_add_executor_job(
-            self.coordinator.hub.set_port, self._ptype, self._seq, True
-        )
+        await self.coordinator.async_set_port(self._ptype, self._seq, True)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.hass.async_add_executor_job(
-            self.coordinator.hub.set_port, self._ptype, self._seq, False
-        )
+        await self.coordinator.async_set_port(self._ptype, self._seq, False)
         await self.coordinator.async_request_refresh()

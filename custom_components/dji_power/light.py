@@ -56,17 +56,17 @@ class DjiPowerLight(DjiPowerEntity, LightEntity):
         return self._state.get("light_fx")
 
     async def async_turn_on(self, **kwargs) -> None:
-        hub = self.coordinator.hub
+        coordinator = self.coordinator
         if ATTR_EFFECT in kwargs:
             mode = "sos" if kwargs[ATTR_EFFECT] == EFFECT_SOS else "on"
-            await self.hass.async_add_executor_job(hub.set_light, mode)
+            await coordinator.async_set_light(mode)
         elif ATTR_BRIGHTNESS in kwargs:
             pct = round(kwargs[ATTR_BRIGHTNESS] * 100 / 255)
-            await self.hass.async_add_executor_job(hub.set_light_brightness, pct)
+            await coordinator.async_set_light_brightness(pct)
         else:
-            await self.hass.async_add_executor_job(hub.set_light, "on")
+            await coordinator.async_set_light("on")
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs) -> None:
-        await self.hass.async_add_executor_job(self.coordinator.hub.set_light, "off")
+        await self.coordinator.async_set_light("off")
         await self.coordinator.async_request_refresh()

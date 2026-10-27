@@ -21,6 +21,7 @@ frontends (webdashboard, HA-bridge, HACS-integratie) zijn dunne consumers daarbo
 |---|---|
 | `dji_power/` | **Core-package** (bron van waarheid): `config`, `rest`, `mqtt`, `model`, `normalize`, `control`, `hub`. Framework-agnostisch, geen HA-afhankelijkheden. |
 | `dji_power/hub.py` | `DjiPowerHub`: bindt REST + cloud-MQTT + normalisatie tot één databron met `subscribe(callback)` en control-passthrough. |
+| `dji_power/ble_protocol.py`, `ble_hub.py`, `ble_state.py`, `duml.py` | **Bluetooth-route** (lokaal, zonder cloud): protocol-constanten + handshake, `BleHub` (zelfde interface als `DjiPowerHub`), TLV-decoder en DUML-codec. Alleen `ble_hub` importeert `bleak` (optioneel: `pip install dji-power[ble]`). De root-bestanden `dji_ble*.py` / `dji_duml.py` zijn CLI's/aliassen. |
 | `apps/ha_bridge.py` | **Externe HA-bridge**: DJI-MQTT → Home Assistant (MQTT-discovery), incl. **schakelbare** lamp + poorten. Bovenop `DjiPowerHub`. |
 | `apps/web.py` | Lokaal dashboard (http://localhost:8765) met alle live waarden **en klikbare schakelaars**. |
 | `custom_components/dji_power/` | **Native HACS-integratie** (config_flow + push-coordinator + entities). Draait ín HA, geen Mosquitto nodig. |
@@ -41,14 +42,29 @@ cp .dji_secrets.example .dji_secrets     # vul je HA-MQTT-broker (Mosquitto) in
 ```
 
 ## Home Assistant via HACS (native integratie)
-De map `custom_components/dji_power/` is een volwaardige HA-integratie: installeer de repo
-als custom repository in HACS, herstart HA en voeg **DJI Power** toe via *Instellingen →
-Integraties* (config_flow vraagt om je member-token + SN). Dit draait ín HA en heeft **geen**
-aparte daemon of Mosquitto nodig. De core wordt meegebundeld onder
-`custom_components/dji_power/core/` (sync met `tools/sync_core.sh`).
-In Home Assistant verschijnt automatisch het device **"DJI Power 1000 Mini"** met sensors
-(accu %, uitgaand/ingaand vermogen, batterijtemp, resterende tijd, lamphelderheid) en
-binaire sensors (laadt, lamp, en de poorten AC/USB-C/USB-A/SDC).
+De map `custom_components/dji_power/` is een volwaardige HA-integratie. Installeer de repo als
+custom repository in HACS, herstart HA en voeg **DJI Power** toe via *Instellingen → Apparaten
+& services*. Dit draait ín HA en heeft **geen** aparte daemon of Mosquitto nodig. De core wordt
+meegebundeld onder `custom_components/dji_power/core/` (sync met `tools/sync_core.sh`).
+
+**Aanmelden** gaat met alleen je member-token: de DJI-cloud geeft daarna per gebonden apparaat
+het serienummer én de Bluetooth-sleutel (`pair_key`). Je kiest dan een modus:
+
+| Modus | Hoe | Eigenschappen |
+|---|---|---|
+| **Cloud** | DJI-cloud (MQTT + REST) | Werkt overal waar HA internet heeft; vereist een geldig token. |
+| **Bluetooth** | Rechtstreeks met de Power, via HA's Bluetooth (lokale adapter of ESPHome-proxy) | Geen cloud na het aanmelden; Power moet binnen bereik zijn. Er kan maar één app tegelijk verbonden zijn, dus de DJI-app op je telefoon kan dan niet verbinden. |
+
+- De modus is later te wisselen via *Configureren* (opties). Bewaar het token als je naar cloud
+  wilt kunnen terugwisselen.
+- Zonder token kan Bluetooth ook handmatig (serienummer + 32-tekens `pair_key`).
+- De Power adverteert als `Power1000Mini-<laatste 6 tekens SN>`; HA ontdekt hem automatisch.
+- Verloopt het token (cloud), dan start HA zelf de *opnieuw aanmelden*-flow.
+- Bestaande entries (token + SN) blijven cloud en werken ongewijzigd.
+
+In Home Assistant verschijnt het device **"DJI Power"** met sensors (accu %, uitgaand/ingaand
+vermogen, batterijtemp, resterende tijd, lamphelderheid), binaire sensors (laadt), de lamp als
+`light` en de poorten (AC/USB-C/USB-A/SDC) als `switch`.
 
 Draai `dji_ha.py` ergens dat altijd aanstaat (Mac, Pi, of als HA-addon/systemd-service).
 

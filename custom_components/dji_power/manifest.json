@@ -1,11 +1,13 @@
 {
   "domain": "dji_power",
   "name": "DJI Power",
+  "bluetooth": [{"local_name": "Power*", "connectable": true}],
   "codeowners": ["@remko"],
   "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
   "documentation": "https://github.com/meinmotion/dji-power",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/meinmotion/dji-power/issues",
   "requirements": ["paho-mqtt>=1.6", "requests>=2.28"],
-  "version": "0.1.1"
+  "version": "0.2.0"
 }

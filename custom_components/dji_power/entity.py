@@ -23,5 +23,10 @@ class DjiPowerEntity(CoordinatorEntity[DjiPowerDataUpdateCoordinator]):
         )
 
     @property
+    def available(self) -> bool:
+        """Bluetooth: onbeschikbaar zonder live verbinding. Cloud: ongewijzigd."""
+        return super().available and self.coordinator.is_connected
+
+    @property
     def _state(self) -> dict:
         return self.coordinator.data or {}

@@ -11,6 +11,26 @@ import requests
 
 from . import const
 
+# Antwoordcode van de DJI-cloud bij een ongeldig/verlopen member-token ("log opnieuw in").
+# Komt als HTTP 200 met deze code in de body (FINDINGS.md), niet als 401.
+AUTH_CODES = {121010}
+
+
+class DjiAuthError(Exception):
+    """Het member-token is ongeldig of verlopen; opnieuw inloggen is nodig."""
+
+
+def check_auth(r):
+    """Gooi DjiAuthError als het antwoord op een ongeldig token wijst."""
+    if r.status_code in (401, 403):
+        raise DjiAuthError("HTTP %s" % r.status_code)
+    try:
+        code = r.json().get("code")
+    except Exception:
+        return
+    if code is not None and str(code).isdigit() and int(code) in AUTH_CODES:
+        raise DjiAuthError(str(r.json().get("message") or code))
+
 
 class RestClient:
     def __init__(self, member_token, sn, api_base=const.API_BASE, timeout=15):
@@ -30,6 +50,7 @@ class RestClient:
     # ---- generieke GET ----
     def get(self, path):
         r = requests.get(self.api_base + path, headers=self.headers(), timeout=self.timeout)
+        check_auth(r)
         r.raise_for_status()
         return r.json().get("data", {})
 
@@ -39,6 +60,7 @@ class RestClient:
 
     def get_settings(self):
         r = requests.get(self._settings_url(), headers=self.headers(), timeout=self.timeout)
+        check_auth(r)
         r.raise_for_status()
         return r.json()["data"]
 
@@ -60,6 +82,7 @@ class RestClient:
     def get_mqtt_creds(self):
         r = requests.get(self.api_base + const.AUTH_PATH, params={"reason": "mqtt"},
                          headers=self.headers(), timeout=20)
+        check_auth(r)
         r.raise_for_status()
         j = r.json()
         return j.get("data", j)   # soms genest onder "data"
