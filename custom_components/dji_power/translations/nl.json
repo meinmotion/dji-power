@@ -89,7 +89,9 @@
     "error": {
       "no_token": "Er is geen token bewaard; cloud is niet beschikbaar.",
       "no_pair_key": "Er is geen pair_key bekend; Bluetooth is niet beschikbaar.",
-      "invalid_address": "Geen geldig Bluetooth-adres (AA:BB:CC:DD:EE:FF)."
+      "invalid_address": "Geen geldig Bluetooth-adres (AA:BB:CC:DD:EE:FF).",
+      "invalid_auth": "Token ongeldig of verlopen.",
+      "cannot_connect": "Kon niet verbinden met de DJI-cloud."
     }
   },
   "selector": {

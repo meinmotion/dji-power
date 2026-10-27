@@ -89,7 +89,9 @@
     "error": {
       "no_token": "No token is stored; cloud is not available.",
       "no_pair_key": "No pair key is known; Bluetooth is not available.",
-      "invalid_address": "Not a valid Bluetooth address (AA:BB:CC:DD:EE:FF)."
+      "invalid_address": "Not a valid Bluetooth address (AA:BB:CC:DD:EE:FF).",
+      "invalid_auth": "Token invalid or expired.",
+      "cannot_connect": "Could not connect to the DJI cloud."
     }
   },
   "selector": {

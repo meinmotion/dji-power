@@ -50,6 +50,36 @@ def _norm_address(address: str) -> str:
     return (address or "").strip().upper()
 
 
+def _discovered_powers(hass) -> dict[str, str]:
+    """Adres -> adverteernaam van alle DJI Power's die HA's Bluetooth nu ziet."""
+    return {
+        info.address: info.name
+        for info in bluetooth.async_discovered_service_info(hass, connectable=True)
+        if name_suffix(info.name)
+    }
+
+
+def _address_selector(discovered: dict[str, str]) -> selector.SelectSelector:
+    """Keuzelijst van gevonden Power's; een adres typen kan ook (custom_value)."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                selector.SelectOptionDict(value=a, label=f"{n} ({a})") for a, n in discovered.items()
+            ],
+            custom_value=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _best_address(discovered: dict[str, str], sn: str, preferred: str | None = None) -> str | None:
+    """Voorkeursadres, anders het adres waarvan de naam bij het SN past."""
+    if preferred:
+        return preferred
+    suffix = sn[-6:].upper()
+    return next((a for a, n in discovered.items() if name_suffix(n) == suffix), None)
+
+
 class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -57,7 +87,6 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
         self._token: str | None = None
         self._devices: list[BoundDevice] = []
         self._device: BoundDevice | None = None
-        self._discovered: dict[str, str] = {}      # adres -> adverteernaam
         self._suggest_address: str | None = None
 
     @staticmethod
@@ -145,13 +174,6 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ---- Bluetooth-adres kiezen ----
-    def _scan_power_devices(self) -> None:
-        self._discovered = {
-            info.address: info.name
-            for info in bluetooth.async_discovered_service_info(self.hass, connectable=True)
-            if name_suffix(info.name)
-        }
-
     async def async_step_bluetooth_device(self, user_input=None) -> ConfigFlowResult:
         assert self._device is not None
         errors: dict[str, str] = {}
@@ -163,22 +185,11 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
                 keep = user_input.get(CONF_KEEP_TOKEN, True)
                 return self._create(MODE_BLE, address=address, keep_token=keep)
 
-        self._scan_power_devices()
-        suffix = self._device.ble_suffix
-        default = self._suggest_address
-        if default is None:                          # adres kiezen waarvan de naam bij het SN past
-            default = next(
-                (a for a, n in self._discovered.items() if name_suffix(n) == suffix), None
-            )
-        options = [
-            selector.SelectOptionDict(value=a, label=f"{n} ({a})")
-            for a, n in self._discovered.items()
-        ]
+        discovered = _discovered_powers(self.hass)
+        default = _best_address(discovered, self._device.sn, self._suggest_address)
         schema: dict = {
-            vol.Required(CONF_BLE_ADDRESS, default=default or vol.UNDEFINED): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=options, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
-                )
+            vol.Required(CONF_BLE_ADDRESS, default=default or vol.UNDEFINED): _address_selector(
+                discovered
             )
         }
         if self._token:
@@ -187,7 +198,7 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="bluetooth_device",
             data_schema=vol.Schema(schema),
             errors=errors,
-            description_placeholders={"sn": self._device.sn, "found": str(len(options))},
+            description_placeholders={"sn": self._device.sn, "found": str(len(discovered))},
         )
 
     # ---- automatische ontdekking (Power adverteert als 'Power1000Mini-<SN-staart>') ----
@@ -263,6 +274,27 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
 class DjiPowerOptionsFlow(OptionsFlow):
     """Wisselen tussen cloud en Bluetooth, en het Bluetooth-adres aanpassen."""
 
+    async def _resolve_pair_key(self, errors: dict) -> tuple[str | None, str | None]:
+        """pair_key/pair_uuid uit de entry, of (bij een oude cloud-entry) uit de cloud halen."""
+        entry = self.config_entry
+        pair_key = entry_value(entry, CONF_PAIR_KEY)
+        pair_uuid = entry_value(entry, CONF_PAIR_UUID)
+        token = entry_value(entry, CONF_MEMBER_TOKEN)
+        if pair_key or not token:
+            return pair_key, pair_uuid
+        try:
+            devices = await self.hass.async_add_executor_job(_fetch_devices, token)
+        except DjiAuthError:
+            errors["base"] = "invalid_auth"
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("pair_key ophalen faalde: %s", err)
+            errors["base"] = "cannot_connect"
+        else:
+            match = next((d for d in devices if d.sn == entry.data[CONF_SN]), None)
+            if match is not None:
+                return match.pair_key, match.pair_uuid
+        return None, None
+
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         entry = self.config_entry
         errors: dict[str, str] = {}
@@ -272,18 +304,27 @@ class DjiPowerOptionsFlow(OptionsFlow):
         if user_input is not None:
             mode = user_input[CONF_MODE]
             address = _norm_address(user_input.get(CONF_BLE_ADDRESS) or current_addr or "")
+            options = {CONF_MODE: mode}
             if mode == MODE_CLOUD and not entry_value(entry, CONF_MEMBER_TOKEN):
                 errors["base"] = "no_token"
-            elif mode == MODE_BLE and not entry_value(entry, CONF_PAIR_KEY):
-                errors["base"] = "no_pair_key"
-            elif mode == MODE_BLE and not MAC_RE.match(address):
-                errors[CONF_BLE_ADDRESS] = "invalid_address"
-            else:
-                options = {CONF_MODE: mode}
-                if address:
-                    options[CONF_BLE_ADDRESS] = address
+            elif mode == MODE_BLE:
+                pair_key, pair_uuid = await self._resolve_pair_key(errors)
+                if not errors:
+                    if not pair_key:
+                        errors["base"] = "no_pair_key"
+                    elif not MAC_RE.match(address):
+                        errors[CONF_BLE_ADDRESS] = "invalid_address"
+                    else:
+                        options.update({CONF_PAIR_KEY: pair_key, CONF_BLE_ADDRESS: address})
+                        if pair_uuid:
+                            options[CONF_PAIR_UUID] = pair_uuid
+            if not errors:
+                if mode == MODE_CLOUD and address:
+                    options[CONF_BLE_ADDRESS] = address      # onthouden voor later terugwisselen
                 return self.async_create_entry(data=options)
 
+        discovered = _discovered_powers(self.hass)
+        default_addr = _best_address(discovered, entry.data[CONF_SN], current_addr)
         schema = {
             vol.Required(CONF_MODE, default=current_mode): selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -292,7 +333,9 @@ class DjiPowerOptionsFlow(OptionsFlow):
                     mode=selector.SelectSelectorMode.LIST,
                 )
             ),
-            vol.Optional(CONF_BLE_ADDRESS, default=current_addr or vol.UNDEFINED): str,
+            vol.Optional(CONF_BLE_ADDRESS, default=default_addr or vol.UNDEFINED): _address_selector(
+                discovered
+            ),
         }
         return self.async_show_form(
             step_id="init", data_schema=vol.Schema(schema), errors=errors
