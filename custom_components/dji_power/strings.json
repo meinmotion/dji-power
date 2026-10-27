@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DJI Power",
+        "description": "Voer je DJI member-token en het serienummer (SN) van je device in.",
+        "data": {
+          "member_token": "Member-token (x-member-token)",
+          "sn": "Serienummer (SN)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kon niet verbinden met de DJI-cloud. Controleer je token en SN."
+    },
+    "abort": {
+      "already_configured": "Dit device is al geconfigureerd."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": { "name": "Accu" },
+      "output": { "name": "Uitgaand vermogen" },
+      "input": { "name": "Ingaand vermogen" },
+      "temperature": { "name": "Batterijtemperatuur" },
+      "remaining": { "name": "Resterende tijd" },
+      "light_brightness": { "name": "Lamp helderheid" }
+    },
+    "binary_sensor": {
+      "charging": { "name": "Laadt" }
+    },
+    "light": {
+      "light": { "name": "Lamp" }
+    }
+  }
+}

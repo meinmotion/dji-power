@@ -1,0 +1,11 @@
+{
+  "domain": "dji_power",
+  "name": "DJI Power",
+  "codeowners": ["@remko"],
+  "config_flow": true,
+  "documentation": "https://github.com/meinmotion/dji-power",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/meinmotion/dji-power/issues",
+  "requirements": ["paho-mqtt>=1.6", "requests>=2.28"],
+  "version": "0.1.0"
+}

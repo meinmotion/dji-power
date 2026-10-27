@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DJI Power",
+        "description": "Enter your DJI member token and the serial number (SN) of your device.",
+        "data": {
+          "member_token": "Member token (x-member-token)",
+          "sn": "Serial number (SN)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the DJI cloud. Check your token and SN."
+    },
+    "abort": {
+      "already_configured": "This device is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": { "name": "Battery" },
+      "output": { "name": "Output power" },
+      "input": { "name": "Input power" },
+      "temperature": { "name": "Battery temperature" },
+      "remaining": { "name": "Remaining time" },
+      "light_brightness": { "name": "Light brightness" }
+    },
+    "binary_sensor": {
+      "charging": { "name": "Charging" }
+    },
+    "light": {
+      "light": { "name": "Light" }
+    }
+  }
+}
