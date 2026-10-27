@@ -262,7 +262,12 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
                         updates[CONF_PAIR_KEY] = match.pair_key
                     if match.pair_uuid:
                         updates[CONF_PAIR_UUID] = match.pair_uuid
-                    return self.async_update_reload_and_abort(entry, data_updates=updates)
+                    stale = {CONF_MEMBER_TOKEN, CONF_PAIR_KEY, CONF_PAIR_UUID}   # opties winnen van data
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        data_updates=updates,
+                        options={k: v for k, v in entry.options.items() if k not in stale},
+                    )
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema({vol.Required(CONF_MEMBER_TOKEN): str}),
@@ -272,59 +277,83 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class DjiPowerOptionsFlow(OptionsFlow):
-    """Wisselen tussen cloud en Bluetooth, en het Bluetooth-adres aanpassen."""
+    """Verbindingsmodus, Bluetooth-adres en de cloud-gegevens (token, pair_key) bewerken.
 
-    async def _resolve_pair_key(self, errors: dict) -> tuple[str | None, str | None]:
-        """pair_key/pair_uuid uit de entry, of (bij een oude cloud-entry) uit de cloud halen."""
-        entry = self.config_entry
-        pair_key = entry_value(entry, CONF_PAIR_KEY)
-        pair_uuid = entry_value(entry, CONF_PAIR_UUID)
-        token = entry_value(entry, CONF_MEMBER_TOKEN)
-        if pair_key or not token:
-            return pair_key, pair_uuid
-        try:
-            devices = await self.hass.async_add_executor_job(_fetch_devices, token)
-        except DjiAuthError:
-            errors["base"] = "invalid_auth"
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("pair_key ophalen faalde: %s", err)
-            errors["base"] = "cannot_connect"
-        else:
-            match = next((d for d in devices if d.sn == entry.data[CONF_SN]), None)
-            if match is not None:
-                return match.pair_key, match.pair_uuid
-        return None, None
+    Het serienummer is de identiteit van het apparaat (alle entiteiten hangen eraan) en is dus
+    niet te wijzigen; voor een andere Power voeg je de integratie opnieuw toe. Lege velden laten
+    de bewaarde waarde staan. Credentials komen in entry.options (die winnen van entry.data).
+    """
 
     async def async_step_init(self, user_input=None) -> ConfigFlowResult:
         entry = self.config_entry
         errors: dict[str, str] = {}
         current_mode = entry_value(entry, CONF_MODE, MODE_CLOUD)
         current_addr = entry_value(entry, CONF_BLE_ADDRESS)
+        sn = entry.data[CONF_SN]
 
         if user_input is not None:
+            options = dict(entry.options)            # bestaande waarden behouden
             mode = user_input[CONF_MODE]
             address = _norm_address(user_input.get(CONF_BLE_ADDRESS) or current_addr or "")
-            options = {CONF_MODE: mode}
-            if mode == MODE_CLOUD and not entry_value(entry, CONF_MEMBER_TOKEN):
-                errors["base"] = "no_token"
-            elif mode == MODE_BLE:
-                pair_key, pair_uuid = await self._resolve_pair_key(errors)
-                if not errors:
-                    if not pair_key:
-                        errors["base"] = "no_pair_key"
-                    elif not MAC_RE.match(address):
-                        errors[CONF_BLE_ADDRESS] = "invalid_address"
+            new_token = (user_input.get(CONF_MEMBER_TOKEN) or "").strip()
+            new_key = (user_input.get(CONF_PAIR_KEY) or "").strip().lower()
+
+            if new_key and not PAIR_KEY_RE.match(new_key):
+                errors[CONF_PAIR_KEY] = "invalid_pair_key"
+            if new_token and not errors:               # nieuw token: controleren, pair_key verversen
+                try:
+                    devices = await self.hass.async_add_executor_job(_fetch_devices, new_token)
+                except DjiAuthError:
+                    errors["base"] = "invalid_auth"
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Token controleren faalde: %s", err)
+                    errors["base"] = "cannot_connect"
+                else:
+                    match = next((d for d in devices if d.sn == sn), None)
+                    if match is None:
+                        errors["base"] = "wrong_account"
                     else:
-                        options.update({CONF_PAIR_KEY: pair_key, CONF_BLE_ADDRESS: address})
-                        if pair_uuid:
-                            options[CONF_PAIR_UUID] = pair_uuid
+                        options[CONF_MEMBER_TOKEN] = new_token
+                        if match.pair_key:
+                            options[CONF_PAIR_KEY] = match.pair_key
+                        if match.pair_uuid:
+                            options[CONF_PAIR_UUID] = match.pair_uuid
+            if new_key and not errors:                 # handmatige pair_key wint van de cloud
+                options[CONF_PAIR_KEY] = new_key
+
+            token = options.get(CONF_MEMBER_TOKEN) or entry.data.get(CONF_MEMBER_TOKEN)
+            pair_key = options.get(CONF_PAIR_KEY) or entry.data.get(CONF_PAIR_KEY)
+            if not errors and mode == MODE_BLE and not pair_key and token:
+                try:                                   # oude cloud-entry: pair_key alsnog ophalen
+                    devices = await self.hass.async_add_executor_job(_fetch_devices, token)
+                except DjiAuthError:
+                    errors["base"] = "invalid_auth"
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("pair_key ophalen faalde: %s", err)
+                    errors["base"] = "cannot_connect"
+                else:
+                    match = next((d for d in devices if d.sn == sn), None)
+                    if match and match.pair_key:
+                        pair_key = options[CONF_PAIR_KEY] = match.pair_key
+                        if match.pair_uuid:
+                            options[CONF_PAIR_UUID] = match.pair_uuid
             if not errors:
-                if mode == MODE_CLOUD and address:
-                    options[CONF_BLE_ADDRESS] = address      # onthouden voor later terugwisselen
+                if mode == MODE_CLOUD and not token:
+                    errors["base"] = "no_token"
+                elif mode == MODE_BLE and not pair_key:
+                    errors["base"] = "no_pair_key"
+                elif mode == MODE_BLE and not MAC_RE.match(address):
+                    errors[CONF_BLE_ADDRESS] = "invalid_address"
+            if not errors:
+                options[CONF_MODE] = mode
+                if address:
+                    options[CONF_BLE_ADDRESS] = address
                 return self.async_create_entry(data=options)
 
         discovered = _discovered_powers(self.hass)
-        default_addr = _best_address(discovered, entry.data[CONF_SN], current_addr)
+        default_addr = _best_address(discovered, sn, current_addr)
+        has_token = bool(entry_value(entry, CONF_MEMBER_TOKEN))
+        has_key = bool(entry_value(entry, CONF_PAIR_KEY))
         schema = {
             vol.Required(CONF_MODE, default=current_mode): selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -336,7 +365,20 @@ class DjiPowerOptionsFlow(OptionsFlow):
             vol.Optional(CONF_BLE_ADDRESS, default=default_addr or vol.UNDEFINED): _address_selector(
                 discovered
             ),
+            vol.Optional(CONF_MEMBER_TOKEN): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+            ),
+            vol.Optional(CONF_PAIR_KEY): selector.TextSelector(
+                selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+            ),
         }
         return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(schema), errors=errors
+            step_id="init",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={
+                "sn": sn,
+                "token_state": "opgeslagen" if has_token else "niet opgeslagen",
+                "key_state": "opgeslagen" if has_key else "niet opgeslagen",
+            },
         )

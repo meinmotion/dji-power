@@ -79,10 +79,16 @@
     "step": {
       "init": {
         "title": "DJI Power-opties",
-        "description": "Kies de verbindingsmodus. Bluetooth vereist een adres; cloud vereist een bewaard token.",
+        "description": "Serienummer: {sn} (niet te wijzigen; voor een andere Power voeg je de integratie opnieuw toe).\n\nMember-token: {token_state}. Pair key: {key_state}. Laat een veld leeg om de bewaarde waarde te behouden. Een nieuw token wordt gecontroleerd en ververst de pair key automatisch.",
         "data": {
           "mode": "Verbindingsmodus",
-          "ble_address": "Bluetooth-adres"
+          "ble_address": "Bluetooth-adres",
+          "member_token": "Nieuw member-token (optioneel)",
+          "pair_key": "Nieuwe pair key (optioneel, 32 hex-tekens)"
+        },
+        "data_description": {
+          "member_token": "Plak hier een nieuw token als het oude is verlopen, of om cloud te kunnen gebruiken.",
+          "pair_key": "Normaal niet nodig: de pair key komt automatisch uit de cloud."
         }
       }
     },
@@ -91,7 +97,9 @@
       "no_pair_key": "Er is geen pair_key bekend; Bluetooth is niet beschikbaar.",
       "invalid_address": "Geen geldig Bluetooth-adres (AA:BB:CC:DD:EE:FF).",
       "invalid_auth": "Token ongeldig of verlopen.",
-      "cannot_connect": "Kon niet verbinden met de DJI-cloud."
+      "cannot_connect": "Kon niet verbinden met de DJI-cloud.",
+      "wrong_account": "Dit account bevat dit apparaat niet.",
+      "invalid_pair_key": "De pair_key moet uit 32 hexadecimale tekens bestaan."
     }
   },
   "selector": {

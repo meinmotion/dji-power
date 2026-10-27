@@ -79,10 +79,16 @@
     "step": {
       "init": {
         "title": "DJI Power options",
-        "description": "Choose the connection mode. Bluetooth needs an address; cloud needs a stored token.",
+        "description": "Serial number: {sn} (cannot be changed; add the integration again for another Power).\n\nMember token: {token_state}. Pair key: {key_state}. Leave a field empty to keep the stored value. A new token is verified and refreshes the pair key automatically.",
         "data": {
           "mode": "Connection mode",
-          "ble_address": "Bluetooth address"
+          "ble_address": "Bluetooth address",
+          "member_token": "New member token (optional)",
+          "pair_key": "New pair key (optional, 32 hex characters)"
+        },
+        "data_description": {
+          "member_token": "Paste a new token here if the old one expired, or to be able to use the cloud.",
+          "pair_key": "Normally not needed: the pair key comes from the cloud automatically."
         }
       }
     },
@@ -91,7 +97,9 @@
       "no_pair_key": "No pair key is known; Bluetooth is not available.",
       "invalid_address": "Not a valid Bluetooth address (AA:BB:CC:DD:EE:FF).",
       "invalid_auth": "Token invalid or expired.",
-      "cannot_connect": "Could not connect to the DJI cloud."
+      "cannot_connect": "Could not connect to the DJI cloud.",
+      "wrong_account": "This account does not contain this device.",
+      "invalid_pair_key": "The pair key must be 32 hexadecimal characters."
     }
   },
   "selector": {
