@@ -1,0 +1,7 @@
+list_bound_devices:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: dji_power

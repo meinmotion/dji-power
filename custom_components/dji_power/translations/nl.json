@@ -149,5 +149,17 @@
         "name": "Laadlimiet"
       }
     }
+  },
+  "services": {
+    "list_bound_devices": {
+      "name": "Toon gebonden apparaten",
+      "description": "Haalt de DJI-cloud-apparatenlijst op (SN, pair_uuid, pair_key) met het member-token dat al bij deze entry hoort. Alleen beschikbaar in cloud-modus.",
+      "fields": {
+        "device_id": {
+          "name": "Apparaat",
+          "description": "De DJI Power waarvoor de apparatenlijst wordt opgehaald."
+        }
+      }
+    }
   }
 }
