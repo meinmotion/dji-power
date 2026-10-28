@@ -1,0 +1,36 @@
+name: Attach integration zip to release
+
+# HACS downloads this zip (see hacs.json: zip_release). Because it is a real release asset,
+# GitHub counts every download in `download_count`, which is how downloads are measured.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Check that manifest.json matches the release tag
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('custom_components/dji_power/manifest.json'))['version'])")
+          if [ "v$version" != "$TAG" ]; then
+            echo "manifest.json version ($version) does not match the release tag ($TAG)"; exit 1
+          fi
+
+      - name: Build the zip (integration files at the zip root, as HACS expects)
+        run: |
+          cd custom_components/dji_power
+          zip -r ../../dji_power.zip . -x "*.pyc" -x "__pycache__/*"
+
+      - name: Upload the zip to the release
+        run: gh release upload "$TAG" dji_power.zip --clobber
