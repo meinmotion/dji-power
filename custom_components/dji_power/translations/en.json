@@ -129,6 +129,9 @@
       },
       "light_brightness": {
         "name": "Light brightness"
+      },
+      "ac_charge_power": {
+        "name": "AC charging power"
       }
     },
     "binary_sensor": {
@@ -139,6 +142,23 @@
     "light": {
       "light": {
         "name": "Light"
+      }
+    },
+    "number": {
+      "charge_limit": {
+        "name": "Charge limit"
+      }
+    }
+  },
+  "services": {
+    "list_bound_devices": {
+      "name": "List bound devices",
+      "description": "Fetches the DJI cloud device list (SN, pair_uuid, pair_key) using the member token already stored for this entry. Only available in cloud mode.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The DJI Power to fetch the device list for."
+        }
       }
     }
   }
