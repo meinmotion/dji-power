@@ -129,6 +129,9 @@
       },
       "light_brightness": {
         "name": "Light brightness"
+      },
+      "ac_charge_power": {
+        "name": "AC charging power"
       }
     },
     "binary_sensor": {
@@ -139,6 +142,11 @@
     "light": {
       "light": {
         "name": "Light"
+      }
+    },
+    "number": {
+      "charge_limit": {
+        "name": "Charge limit"
       }
     }
   }

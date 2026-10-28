@@ -129,6 +129,9 @@
       },
       "light_brightness": {
         "name": "Lamp helderheid"
+      },
+      "ac_charge_power": {
+        "name": "AC-laadvermogen"
       }
     },
     "binary_sensor": {
@@ -139,6 +142,11 @@
     "light": {
       "light": {
         "name": "Lamp"
+      }
+    },
+    "number": {
+      "charge_limit": {
+        "name": "Laadlimiet"
       }
     }
   }
