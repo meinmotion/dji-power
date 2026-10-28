@@ -27,6 +27,7 @@ frontends (webdashboard, HA-bridge, HACS-integratie) zijn dunne consumers daarbo
 | `custom_components/dji_power/` | **Native HACS-integratie** (config_flow + push-coordinator + entities). Draait ín HA, geen Mosquitto nodig. |
 | `dji_control.py` | Backwards-compat shim voor de CLI (`dji_power.control`). |
 | `tools/re/` | Reverse-engineering-/debug-scripts (o.a. `dji_cloud.py`). |
+| `tools/make_icon.py` | Genereert het integratie-icoon (`custom_components/dji_power/brand/icon*.png`) met Pillow. |
 | `tools/fix_elf.py` | Herstelt de door de packer gestripte `.dynsym` in `libapp.so` (voor Blutter). |
 | `.dji_secrets` | Jouw geheimen (gitignored). Kopie van `.dji_secrets.example`. |
 | `mem4_prefs.txt` | Bevat het member-token (`flutter.user_token`), uit de emulator-geheugendump. |
