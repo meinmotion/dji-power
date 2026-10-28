@@ -44,10 +44,12 @@ you can switch between the two at any time.
 
 ### HACS (custom repository)
 
-1. In HACS open the **⋮** menu → **Custom repositories**.
-2. Add `https://github.com/meinmotion/dji-power` with type **Integration**.
-3. Search for **DJI Power**, open it and choose **Download**.
-4. **Restart Home Assistant.**
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=meinmotion&repository=dji-power&category=integration)
+
+1. Click the badge above, or in HACS open the **⋮** menu → **Custom repositories** and add
+   `https://github.com/meinmotion/dji-power` with type **Integration**.
+2. Search for **DJI Power**, open it and choose **Download**.
+3. **Restart Home Assistant.**
 
 ### Manual
 
