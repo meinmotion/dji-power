@@ -51,7 +51,10 @@ def default_token():
 
 
 def default_sn():
-    return load_secret("DJI_SN") or const.DEFAULT_SN
+    sn = load_secret("DJI_SN")
+    if not sn:
+        raise RuntimeError("Geen serienummer gevonden (zet DJI_SN in .dji_secrets of als omgevingsvariabele).")
+    return sn
 
 
 @dataclass

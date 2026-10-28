@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 
 from .core.ble_async import AsyncBleHub
 
-# Adverteernaam, bv. 'Power1000Mini-110QPR': modelnaam + '-' + laatste 6 tekens van het SN.
+# Adverteernaam, bv. 'Power1000Mini-ABC123': modelnaam + '-' + laatste 6 tekens van het SN.
 NAME_RE = re.compile(r"^Power\d{3,4}\w*-(?P<suffix>[0-9A-Za-z]{4,8})$")
 MAC_RE = re.compile(r"^([0-9A-F]{2}:){5}[0-9A-F]{2}$")
 

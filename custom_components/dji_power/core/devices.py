@@ -24,7 +24,7 @@ class BoundDevice:
 
     @property
     def label(self) -> str:
-        """Korte weergavenaam voor een keuzelijst: 'DJI Power 1000 Mini (…110QPR)'."""
+        """Korte weergavenaam voor een keuzelijst: 'DJI Power 1000 Mini (…ABC123)'."""
         return "%s (…%s)" % (self.name, self.sn[-6:])
 
     @property
@@ -59,7 +59,7 @@ _ADV_RE = re.compile(r"^Power(?P<num>\d{3,4})(?P<rest>[A-Za-z0-9]*)-[0-9A-Za-z]{
 
 
 def model_from_adv_name(name: str | None) -> str | None:
-    """'Power1000Mini-110QPR' -> 'Power 1000 Mini' (zonder fabrikant; die staat apart)."""
+    """'Power1000Mini-ABC123' -> 'Power 1000 Mini' (zonder fabrikant; die staat apart)."""
     m = _ADV_RE.match(name or "")
     if not m:
         return None

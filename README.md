@@ -1,151 +1,203 @@
-# DJI Power 1000 Mini → Home Assistant (remote, via DJI-cloud)
+<img src="custom_components/dji_power/brand/icon@2x.png" alt="DJI Power icon" width="96" align="right">
 
-Leest de DJI Power 1000 Mini op afstand uit via de DJI-cloud (MQTT) en publiceert de
-status naar Home Assistant met MQTT-discovery. **Uitlezen én besturing werken volledig,
-op afstand, zonder emulator** (zie onderaan).
+# DJI Power for Home Assistant
 
-## Hoe het werkt
-1. **Auth**: `GET https://home-api-vg.djigate.com/app/api/v1/users/auth/token?reason=mqtt`
-   met header `x-member-token: <member-token>` → MQTT-credentials (broker, user_uuid,
-   dynamisch wachtwoord ~4u geldig).
-2. **MQTT** (TLS, `crobot-mqtt-us.djigate.com:8883`): subscribe op
-   `forward/dy/thing/product/<SN>/property` (+ `/events`).
-3. **Status** (`method:device_osd`, ~1/s): accu, watt in/uit, temp, resterende tijd, poorten.
-   **Poort-schakelaars + lamp** komen via `method:device_state` (`power_sw`, `light`).
+A custom [Home Assistant](https://www.home-assistant.io/) integration that reads and controls a
+**DJI Power** portable power station — over the **DJI cloud** or directly over **Bluetooth**, and
+you can switch between the two at any time.
 
-## Structuur
-De deelbare logica staat in het framework-agnostische core-package **`dji_power/`**; de
-frontends (webdashboard, HA-bridge, HACS-integratie) zijn dunne consumers daarbovenop.
+> **Unofficial.** This project is not affiliated with, endorsed by, or supported by DJI. "DJI" is a
+> trademark of SZ DJI Technology Co., Ltd. The integration relies on a reverse-engineered, undocumented
+> API and Bluetooth protocol that DJI can change at any moment. Use it at your own risk — switching
+> the AC output off cuts the power to whatever is plugged into it.
 
-| Pad | Doel |
-|---|---|
-| `dji_power/` | **Core-package** (bron van waarheid): `config`, `rest`, `mqtt`, `model`, `normalize`, `control`, `hub`. Framework-agnostisch, geen HA-afhankelijkheden. |
-| `dji_power/hub.py` | `DjiPowerHub`: bindt REST + cloud-MQTT + normalisatie tot één databron met `subscribe(callback)` en control-passthrough. |
-| `dji_power/ble_protocol.py`, `ble_hub.py`, `ble_state.py`, `duml.py` | **Bluetooth-route** (lokaal, zonder cloud): protocol-constanten + handshake, `BleHub` (zelfde interface als `DjiPowerHub`), TLV-decoder en DUML-codec. Alleen `ble_hub` importeert `bleak` (optioneel: `pip install dji-power[ble]`). De root-bestanden `dji_ble*.py` / `dji_duml.py` zijn CLI's/aliassen. |
-| `apps/ha_bridge.py` | **Externe HA-bridge**: DJI-MQTT → Home Assistant (MQTT-discovery), incl. **schakelbare** lamp + poorten. Bovenop `DjiPowerHub`. |
-| `apps/web.py` | Lokaal dashboard (http://localhost:8765) met alle live waarden **en klikbare schakelaars**. |
-| `custom_components/dji_power/` | **Native HACS-integratie** (config_flow + push-coordinator + entities). Draait ín HA, geen Mosquitto nodig. |
-| `dji_control.py` | Backwards-compat shim voor de CLI (`dji_power.control`). |
-| `tools/re/` | Reverse-engineering-/debug-scripts (o.a. `dji_cloud.py`). |
-| `tools/make_icon.py` | Genereert het integratie-icoon (`custom_components/dji_power/brand/icon*.png`) met Pillow. |
-| `tools/fix_elf.py` | Herstelt de door de packer gestripte `.dynsym` in `libapp.so` (voor Blutter). |
-| `.dji_secrets` | Jouw geheimen (gitignored). Kopie van `.dji_secrets.example`. |
-| `mem4_prefs.txt` | Bevat het member-token (`flutter.user_token`), uit de emulator-geheugendump. |
-| `CREDITS.md` | Externe tools/projecten die credit verdienen. |
-| `PROTOCOL_CLOUD.md` / `FINDINGS.md` | Protocol + volledige reverse-engineering-bevindingen. |
+## Features
 
-## Opzetten (standalone: bridge + webdashboard)
-```bash
-./.venv/bin/pip install -r requirements.txt
-cp .dji_secrets.example .dji_secrets     # vul je HA-MQTT-broker (Mosquitto) in
-./.venv/bin/python apps/ha_bridge.py     # HA-bridge
-./.venv/bin/python apps/web.py           # of het lokale dashboard op :8765
-```
+- **Live readings**, about once per second: battery level, input and output power, battery
+  temperature, remaining time, charging state.
+- **Control** the built-in lamp (on/off, brightness, SOS effect) and every output port
+  (AC, USB-C, USB-A, DC) as native `light` and `switch` entities.
+- **Two connection modes**, switchable in the integration options:
+  - **Cloud** — via the DJI cloud (MQTT for readings, REST for control). Works from anywhere.
+  - **Bluetooth** — directly to the power station through Home Assistant's Bluetooth stack
+    (local adapter or Bluetooth proxy). No cloud needed after the initial sign-in.
+- **Sign in with a single token.** The serial number and the Bluetooth pairing key are fetched
+  from your DJI account automatically; you only choose your device.
+- **Automatic discovery** of the power station over Bluetooth.
+- **Re-authentication** flow when the token expires, and editable token / pairing key in the options.
+- Device info shows model, serial number and firmware version. English and Dutch translations.
 
-## Home Assistant via HACS (native integratie)
-De map `custom_components/dji_power/` is een volwaardige HA-integratie. Installeer de repo als
-custom repository in HACS, herstart HA en voeg **DJI Power** toe via *Instellingen → Apparaten
-& services*. Dit draait ín HA en heeft **geen** aparte daemon of Mosquitto nodig. De core wordt
-meegebundeld onder `custom_components/dji_power/core/` (sync met `tools/sync_core.sh`).
+## Requirements
 
-**Aanmelden** gaat met alleen je member-token: de DJI-cloud geeft daarna per gebonden apparaat
-het serienummer én de Bluetooth-sleutel (`pair_key`). Je kiest dan een modus:
+- Home Assistant **2024.11** or newer (developed and tested on 2026.10).
+- [HACS](https://hacs.xyz/) (or a manual install).
+- A DJI account that has your power station bound, and its **member token** (see
+  [Getting your member token](#getting-your-member-token)).
+- For Bluetooth mode: a Bluetooth adapter on the Home Assistant host (or a Bluetooth proxy) that is
+  within range of the power station.
 
-| Modus | Hoe | Eigenschappen |
+## Installation
+
+### HACS (custom repository)
+
+1. In HACS open the **⋮** menu → **Custom repositories**.
+2. Add `https://github.com/meinmotion/dji-power` with type **Integration**.
+3. Search for **DJI Power**, open it and choose **Download**.
+4. **Restart Home Assistant.**
+
+### Manual
+
+Copy `custom_components/dji_power/` into the `custom_components/` folder of your Home Assistant
+configuration and restart.
+
+## Setup
+
+Go to **Settings → Devices & services → Add integration → DJI Power**.
+
+1. Choose **Sign in with member token** and paste your token. The integration lists the power
+   stations bound to your account; pick yours.
+2. Choose the connection mode: **Cloud** or **Bluetooth**. For Bluetooth, pick the discovered power
+   station (it advertises as `Power1000Mini-<last 6 characters of the serial number>`).
+3. Optional: choose **Bluetooth only** at the start to enter the serial number and the 32-character
+   pairing key by hand and skip the token entirely.
+
+If a power station is in range, Home Assistant may also offer it automatically as a discovered device.
+
+## Getting your member token
+
+The integration needs the `x-member-token` of your DJI Home session (a long string starting with
+`US_`). **There is currently no built-in login**: DJI's account login needs request-signing identifiers
+that have not been captured, so a username/password flow is not possible yet. Obtaining the token
+means extracting it from the DJI Home app session of *your own* account; this repository does not ship
+that tooling.
+
+Treat the token like a password. It is stored in the Home Assistant config entry, and it typically stays
+valid for days to weeks, after which Home Assistant asks you to sign in again.
+
+Bluetooth does not remove the need for a token: the pairing key that the Bluetooth handshake needs is
+delivered through the cloud (`pair_info.pair_key` of your device list). You need the token once to fetch
+it, after which a Bluetooth entry works without it. If you already know your pairing key you can skip the
+token altogether (*Bluetooth only*).
+
+## Connection modes
+
+| | **Cloud** | **Bluetooth** |
 |---|---|---|
-| **Cloud** | DJI-cloud (MQTT + REST) | Werkt overal waar HA internet heeft; vereist een geldig token. |
-| **Bluetooth** | Rechtstreeks met de Power, via HA's Bluetooth (lokale adapter of ESPHome-proxy) | Geen cloud na het aanmelden; Power moet binnen bereik zijn. Er kan maar één app tegelijk verbonden zijn, dus de DJI-app op je telefoon kan dan niet verbinden. |
+| Needs internet | Yes | No (after sign-in) |
+| Needs a valid token | Always | Only to fetch the pairing key |
+| Range | Anywhere | Within range of an adapter or proxy |
+| Update rate | ~1 s | ~1 s |
+| Phone app at the same time | Yes | **No** — the power station accepts one Bluetooth connection at a time, so the DJI app cannot connect while Home Assistant holds it |
 
-- De modus is later te wisselen via *Configureren* (opties). Bewaar het token als je naar cloud
-  wilt kunnen terugwisselen.
-- Zonder token kan Bluetooth ook handmatig (serienummer + 32-tekens `pair_key`).
-- De Power adverteert als `Power1000Mini-<laatste 6 tekens SN>`; HA ontdekt hem automatisch.
-- Verloopt het token (cloud), dan start HA zelf de *opnieuw aanmelden*-flow.
-- Bestaande entries (token + SN) blijven cloud en werken ongewijzigd.
+Things worth knowing:
 
-In Home Assistant verschijnt het device **"DJI Power"** met sensors (accu %, uitgaand/ingaand
-vermogen, batterijtemp, resterende tijd, lamphelderheid), binaire sensors (laadt), de lamp als
-`light` en de poorten (AC/USB-C/USB-A/SDC) als `switch`.
+- Commands sent over Bluetooth reach the device immediately, but the **cloud's copy of the state
+  lags by roughly 20–55 seconds**. Don't judge a Bluetooth switch by looking at the DJI cloud.
+- In Bluetooth mode the entities become *unavailable* while the connection is down, and the
+  integration reconnects automatically with a growing back-off.
+- Switch modes in **Settings → Devices & services → DJI Power → Configure**.
 
-Draai `dji_ha.py` ergens dat altijd aanstaat (Mac, Pi, of als HA-addon/systemd-service).
+## Entities
 
-## Tokens / levensduur
-- **MQTT-token** (~4u): wordt **automatisch** ververst door `dji_ha.py`. Niks te doen.
-- **Member-token** (`US_…`): lang geldig (dagen/weken). Verloopt het ooit, dan opnieuw uit
-  de app halen (emulator-geheugendump, zie `RE-STEPS.md`) of via een nagebouwde
-  `account.dji.com`-login een vers token oogsten.
+All entities belong to one device ("DJI Power", with model, serial number and firmware version).
 
-## Besturing — schone REST-API (`dji_control.py`), GEEN emulator
-Schakelen werkt volledig via de cloud-REST-API:
+| Platform | Entity (English name) | Notes |
+|---|---|---|
+| `sensor` | Battery | % |
+| `sensor` | Output power / Input power | W |
+| `sensor` | Battery temperature | °C |
+| `sensor` | Remaining time | minutes |
+| `sensor` | Light brightness | % |
+| `binary_sensor` | Charging | |
+| `light` | Light | the built-in lamp: brightness and an *SOS* effect |
+| `switch` | One per output port | AC, USB-C 1/2, USB-A 1/2 and DC (SDC); discovered from the device, so other models get their own port layout. Port names are currently Dutch (e.g. *AC-uitgang*) |
+
+The firmware version shown is the main firmware. The wireless module's firmware version is available
+in the integration's state but is not exposed as an entity.
+
+## Options
+
+**Configure** on the integration lets you change:
+
+- **Connection mode** — cloud or Bluetooth.
+- **Bluetooth address** — a drop-down of the power stations Home Assistant currently sees; you can also
+  type an address.
+- **New member token** — verified against your account before it is saved; it also refreshes the
+  pairing key. Leave empty to keep the stored token.
+- **New pairing key** — normally not needed (it comes from the cloud). Leave empty to keep the stored key.
+
+The serial number is shown but cannot be changed: it identifies the device and all its entities. To use
+a different power station, add the integration again.
+
+## Troubleshooting
+
+| Symptom | Likely cause / fix |
+|---|---|
+| *Token invalid or expired* | Paste a fresh token (options, or the **Re-authenticate** prompt). |
+| *This account does not contain this device* | The new token belongs to another DJI account. |
+| Bluetooth: *no data from the Power* at startup | Power station off, out of range of every adapter/proxy, or the DJI app on a phone is connected to it. Close the app and reload the integration. |
+| Bluetooth entities *unavailable* | The connection dropped; it retries automatically. Check range. |
+| Switch looks wrong in the DJI cloud/app after a Bluetooth command | Expected: the cloud follows after ~20–55 s. |
+
+For more detail, enable debug logging for `custom_components.dji_power` (**Settings → Devices &
+services → DJI Power → Enable debug logging**).
+
+## Compatibility
+
+Developed and tested against a **DJI Power 1000 Mini** (device type 272). The DJI Power line shares the
+same cloud API, settings model and Bluetooth protocol, so the **Power 1000, 1000 V/V2, 2000 and 2000
+Mini** are expected to work — but they have **not been tested**. Output ports are discovered from the
+device rather than hard-coded. Reports for other models are welcome.
+
+Bluetooth through an **ESPHome Bluetooth proxy** goes through the same Home Assistant stack and should
+work, but has not been tested either (only a local USB adapter has).
+
+## How it works
+
+- **Cloud:** the member token is exchanged for short-lived MQTT credentials; the integration subscribes to
+  the device's property topic for ~1 Hz telemetry and uses the REST settings endpoint for control. The
+  settings API only accepts a read-modify-write of the *complete* settings object, which the integration
+  handles for you.
+- **Bluetooth:** a plaintext DUML-framed protocol over GATT. After a nonce-based handshake using the
+  pairing key, the device pushes telemetry about once per second and accepts keyed-property writes for the
+  lamp and ports.
+- The protocol and device logic live in a framework-agnostic package (`custom_components/dji_power/core/`,
+  no Home Assistant imports) that the Home Assistant layer builds on.
+
+## Development
+
+The full development tree also contains a standalone web dashboard, an MQTT bridge, a command-line tool
+and reverse-engineering notes; only the integration and this README are published in the repository.
+
+```text
+custom_components/dji_power/
+├── __init__.py, config_flow.py, coordinator.py, entity.py, …   Home Assistant layer
+├── ble.py                    Home Assistant Bluetooth connection factory
+├── brand/                    integration icon (generated by tools/make_icon.py in the dev tree)
+└── core/                     framework-agnostic core
+    ├── rest.py, mqtt.py, hub.py            cloud route (REST + MQTT)
+    ├── ble_protocol.py, ble_async.py       Bluetooth route (handshake, state, control)
+    ├── ble_state.py, duml.py               Bluetooth decoding and framing
+    └── devices.py, model.py, normalize.py  device list, port model, normalised state
+```
+
+Tests (development tree):
 
 ```bash
-./.venv/bin/python dji_control.py state              # lamp + poort-standen
-./.venv/bin/python dji_control.py light on|off|sos   # lamp: aan / uit / SOS-modus
-./.venv/bin/python dji_control.py light bri 50        # helderheid 10-100%
-./.venv/bin/python dji_control.py port 2 1 off       # poort schakelen (2/1 = AC; 'off' cut de last!)
+python tests/test_normalize.py && python tests/test_ble_protocol.py \
+  && python tests/test_ble_async.py && python tests/test_devices.py     # core, no dependencies
+pip install pytest-homeassistant-custom-component && pytest tests/ha     # config/reauth/options flows
 ```
 
-De lamp heeft drie standen (enum `Mya`): **1=uit, 2=aan** (helderheid = `pwm_v`, 10-100%),
-**3=SOS**. De poort-schakelaar `sw` is óók een enum (`Lsa`), geen boolean:
-**1=aan (open), 2=uit (close)** — `sw:2` betekent dus *uit*, niet aan.
+The Bluetooth tests run against a fake power station using real captured frames; the flow tests run
+on Home Assistant's own flow engine with a mocked cloud.
 
-En vanuit het **dashboard** (`http://localhost:8765`): uit/aan/SOS-schuifschakelaars, een
-helderheids-slider en poort-schakelaars — allemaal direct via de REST-call. Geen emulator, geen
-adb, geen UI-automatisering. In **Home Assistant** verschijnt de lamp als `light`-entiteit met
-helderheid en een SOS-effect; de poorten als schakelbare `switch`-entiteiten.
+## Credits
 
-**Optimistische UI:** de cloud-bevestiging na een schakelactie duurt enkele seconden (de
-`app→cloud→device→cloud`-round-trip is inherent aan de cloud — DJI's eigen app is even traag).
-Het dashboard toont daarom de nieuwe stand direct en zet de schakelaar op ⏳/disabled tot de
-cloud bevestigt (snelle polling + de MQTT `device_state`-push; timeout ~12s). De **live**
-waarden (accu/watt/temp via MQTT `device_osd`) komen al ~1×/s binnen.
-
-### Hoe (gevonden via Blutter-decompilatie)
-De control-endpoint is **`PUT /dy/app/api/v1/devices/<SN>/settings`** met **alléén
-`x-member-token`** (geen Sign-Mc). De app doet **read-modify-write van het VOLLEDIGE
-settings-object**:
-
-```json
-{"double_check": false, "param": { <alle settings, met 1 veld gewijzigd> }}
-```
-
-Een partieel `param` (bv. alleen `{"light": …}`) geeft `121001 parameter error`; alleen het
-complete object wordt geaccepteerd. De server antwoordt vaak met `121804 "Device response
-timeout"`, maar de wijziging wordt wél toegepast — `dji_control.py` verifieert daarom via een
-GET.
-
-Dit body-formaat was niet te raden en niet live te onderscheppen (Flutter negeert de proxy;
-frida crasht op AppGuard). Het is gereconstrueerd met **Blutter** op `libapp.so`. De packer
-(zxprotect) had de `.dynsym` gestript, waardoor Blutter de vier Dart-snapshot-symbolen niet
-vond; `tools/fix_elf.py` herstelt die (snapshot-blobs op vaddr==offset, adressen via de
-snapshot-magic + instructie-ImageHeaders). Zie `RE-STEPS.md`.
-
-`tools/re/dji_tap.py` (emulator-UI-automatisering) bestaat nog als fallback, maar is niet meer nodig.
-
-### Meer instellingen (generieke setter)
-Elk veld in het settings-object is via dezelfde read-modify-write bereikbaar:
-
-```bash
-./.venv/bin/python dji_control.py set charge_limit.chg_up 90    # laadlimiet 90%
-./.venv/bin/python dji_control.py set ac_hz_gear.gear 2         # AC-frequentie (50/60Hz)
-./.venv/bin/python dji_control.py set display.temp_unit 2       # °C/°F
-./.venv/bin/python dji_control.py set es.chg_pct 80             # backup-reserve %
-```
-
-Nog niet in de UI, maar meteen bruikbaar: `charge_limit`, `ac_chg_gear` (laadsnelheid),
-`ac_hz_gear`, `display`, `low_power_alert`, `ac_out_mem`, `es`, en model-specifiek
-`low_power_mode`, `overcharge_mode`, `input_p_stepless`, `host_soc_value`, `pv_es` (zonne/MPPT),
-`grid_conn_es` (netgekoppeld), `parallels`. Elk veld heeft een `available`-vlag (`false` = dit
-model heeft de functie niet).
-
-## Modellen / compatibiliteit
-De app en cloud-API zijn identiek voor de **hele Power-lijn**: **Power 1000, 1000 Mini**
-(deze, type 272), **1000 V/V2, 2000 en 2000 Mini**. Zelfde endpoints, settings-model en enums —
-uitlezen én besturing werken dus op elk van deze modellen. Per model verschillen alleen:
-- de **poort-layout** (`power_sw`): `dji_web.py` en `dji_ha.py` lezen die **dynamisch** uit, dus
-  de UI/entiteiten passen zich vanzelf aan (een 2000 met andere poorten werkt out-of-the-box);
-- de **beschikbare functies** (`available`-vlag): bv. zonne-laden (`pv_es`/MPPT), netgekoppeld
-  laden (`grid_conn_es`) en parallel koppelen (`parallels`) zijn op grotere modellen aanwezig en
-  via de generieke setter meteen te bedienen.
-
-Enige aanname: het device hangt aan een DJI-account waarvan je het `x-member-token` hebt.
+- [**Blutter**](https://github.com/worawit/blutter) by Worawit Wangwarunyoo (MIT) — Flutter/Dart reverse
+  engineering that made the control protocol readable.
+- [**jadx**](https://github.com/skylot/jadx) — APK decompilation.
+- [**xn0tsa/dji-home-credential-extractor**](https://github.com/xn0tsa/dji-home-credential-extractor) —
+  reference for the authentication flow.
+- Integration structure inspired by the Roborock integration and
+  [Tasshack/dreame-vacuum](https://github.com/Tasshack/dreame-vacuum).

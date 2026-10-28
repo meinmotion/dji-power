@@ -8,7 +8,6 @@ API_BASE = "https://home-api-vg.djigate.com"   # regio 2 (EU)
 AUTH_PATH = "/app/api/v1/users/auth/token"
 UA = "DJI-Home/1.6.3 (Android)"
 LINE = "dy"                                     # productlijn-prefix (Power); bevestigd via SUBACK
-DEFAULT_SN = "AJ8XP571110QPR"
 
 
 def settings_url(sn):
