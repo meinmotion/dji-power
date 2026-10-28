@@ -7,6 +7,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    EntityCategory,
     PERCENTAGE,
     UnitOfPower,
     UnitOfTemperature,
@@ -46,6 +47,16 @@ SENSORS: tuple[SensorEntityDescription, ...] = (
         key="light_pct", translation_key="light_brightness",
         native_unit_of_measurement=PERCENTAGE, state_class=SensorStateClass.MEASUREMENT,
         icon="mdi:lightbulb",
+    ),
+    # Cloud-only (geen BLE-tegenhanger): komt alleen uit het volledige settings-object, niet uit
+    # de MQTT device_state-push. Welke gear 'actief' is, is afgeleid via dezelfde sw-enum als
+    # power_sw (1=aan); het schrijven van ac_chg_gear is bewust niet geïmplementeerd, zie
+    # dji_power/normalize.py en control.set_charge_limit voor de onderbouwing.
+    SensorEntityDescription(
+        key="ac_charge_power_w", translation_key="ac_charge_power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER, state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:transmission-tower-import", entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
 

@@ -36,8 +36,9 @@ def normalize_state(host):
     """method:device_state (of het settings-object) -> lamp + poort-standen.
 
     Retour bevat, indien aanwezig: light_pct, light_on, light_fx, per poort
-    port_<type>_<seq> = 'on'/'off', en fw_version / wireless_fw_version (alleen in het volledige
-    settings-object: base_info.data.firm_ver / wireless_firm_ver).
+    port_<type>_<seq> = 'on'/'off', fw_version / wireless_fw_version, charge_limit_pct en
+    ac_charge_power_w (de laatste vier alleen in het volledige settings-object, niet in de
+    MQTT device_state-push: base_info/charge_limit/ac_chg_gear ontbreken daar).
     """
     out = {}
     info = ((host.get("base_info") or {}).get("data")) or {}
@@ -55,4 +56,15 @@ def normalize_state(host):
     if psw:
         for s in psw:
             out[model.port_key(s["type"], s["seq"])] = "on" if s.get("sw") == model.PORT_ON else "off"
+    cl = (host.get("charge_limit") or {}).get("data")
+    if cl and "chg_up" in cl:
+        out["charge_limit_pct"] = cl["chg_up"]
+    gears = (host.get("ac_chg_gear") or {}).get("data")
+    if gears:
+        # Zelfde sw-enum als power_sw (1=aan) binnen dezelfde settings-API; welke gear 'actief'
+        # is, is op die manier afgeleid, niet los bevestigd. Alleen uitgelezen, niet schrijfbaar:
+        # zie dji_power/control.py set_charge_limit voor waarom ac_chg_gear (nog) niet schrijft.
+        active = next((g for g in gears if g.get("sw") == model.PORT_ON), None)
+        if active and "power" in active:
+            out["ac_charge_power_w"] = active["power"]
     return out

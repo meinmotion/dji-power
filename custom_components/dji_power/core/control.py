@@ -117,6 +117,27 @@ def set_light_brightness(pct, sn=None, token=None, client=None, verify=True):
     return out
 
 
+def set_charge_limit(pct, sn=None, token=None, client=None, verify=True):
+    """Laadlimiet % (charge_limit.chg_up): stopt met laden boven deze grens.
+
+    AANNAME: grenzen 50-100% zijn niet onafhankelijk bevestigd als harde DJI-limiet (wel
+    gebruikt als conservatieve default in een vergelijkbaar reverse-engineering-project,
+    hiromo/ha-dji-power-bt, dat ditzelfde veld via BLE in plaats van REST instelt). Het
+    generieke read-modify-write-mechanisme is bewezen (lamp/poort); dat het device na een
+    PUT op chg_up ook daadwerkelijk eerder stopt met laden is NIET apart met hardware
+    geverifieerd — alleen dat de server de wijziging accepteert en teruggeeft via GET.
+    """
+    pct = int(pct)
+
+    def m(p):
+        p["charge_limit"]["data"]["chg_up"] = pct
+
+    out = apply_change(m, sn, token, client=client, verify=verify)
+    if out["settings"] is not None:
+        out["applied"] = out["settings"]["charge_limit"]["data"]["chg_up"] == pct
+    return out
+
+
 def set_field(path, value, sn=None, token=None, client=None, verify=True):
     """Generieke setter voor élk settings-veld (werkt voor de hele Power-lijn).
 

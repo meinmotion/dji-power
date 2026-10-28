@@ -111,3 +111,6 @@ class DjiPowerHub:
 
     def set_field(self, path, value, verify=False):
         return control.set_field(path, value, client=self.rest, verify=verify)
+
+    def set_charge_limit(self, pct, verify=False):
+        return control.set_charge_limit(pct, client=self.rest, verify=verify)
