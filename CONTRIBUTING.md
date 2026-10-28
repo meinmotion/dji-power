@@ -14,8 +14,8 @@ cannot be pushed to directly.
 - Update the translations in `strings.json`, `translations/en.json` and `translations/nl.json` when you
   change user-facing texts.
 - **Never post tokens, pairing keys or serial numbers** in issues, pull requests or logs. Redact them first.
-- Tested on a DJI Power 1000 Mini only. Reports and fixes for other models are very welcome; please say
-  which model and connection mode (cloud / Bluetooth) you used.
+- The maintainer could only test on their own DJI Power 1000 Mini. Reports and fixes for other models are
+  very welcome; please say which model and connection mode (cloud / Bluetooth) you used.
 
 ## Reporting a problem
 

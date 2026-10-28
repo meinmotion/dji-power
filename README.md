@@ -6,6 +6,10 @@ A custom [Home Assistant](https://www.home-assistant.io/) integration that reads
 **DJI Power** portable power station — over the **DJI cloud** or directly over **Bluetooth**, and
 you can switch between the two at any time.
 
+> **Tested on one device only.** The maintainer owns a single **DJI Power 1000 Mini** and has only been
+> able to test on that unit. Other models of the Power line are expected to work but are untested —
+> see [Compatibility](#compatibility).
+
 > **Unofficial.** This project is not affiliated with, endorsed by, or supported by DJI. "DJI" is a
 > trademark of SZ DJI Technology Co., Ltd. The integration relies on a reverse-engineered, undocumented
 > API and Bluetooth protocol that DJI can change at any moment. Use it at your own risk — switching
@@ -144,9 +148,10 @@ services → DJI Power → Enable debug logging**).
 
 ## Compatibility
 
-Developed and tested against a **DJI Power 1000 Mini** (device type 272). The DJI Power line shares the
-same cloud API, settings model and Bluetooth protocol, so the **Power 1000, 1000 V/V2, 2000 and 2000
-Mini** are expected to work — but they have **not been tested**. Output ports are discovered from the
+Developed and tested against a **DJI Power 1000 Mini** (device type 272). That is the maintainer's own
+unit and the **only device it has been tested on**. The DJI Power line shares the same cloud API,
+settings model and Bluetooth protocol, so the **Power 1000, 1000 V/V2, 2000 and 2000 Mini** are
+expected to work — but they have **not been tested**. Output ports are discovered from the
 device rather than hard-coded. Reports for other models are welcome.
 
 Bluetooth through an **ESPHome Bluetooth proxy** goes through the same Home Assistant stack and should
