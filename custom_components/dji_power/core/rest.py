@@ -11,13 +11,23 @@ import requests
 
 from . import const
 
-# Antwoordcode van de DJI-cloud bij een ongeldig/verlopen member-token ("log opnieuw in").
-# Komt als HTTP 200 met deze code in de body (FINDINGS.md), niet als 401.
-AUTH_CODES = {121010}
+# Antwoordcodes van de DJI-cloud bij een ongeldig/verlopen member-token ("请重新登录" = log opnieuw in).
+# Komt als HTTP 200 met {"result": {"code": 121011, ...}} (geverifieerd 2026-10-28); een geldig
+# antwoord heeft result.code == 0. 121010 stond eerder in FINDINGS.md; beide tellen als auth-fout.
+AUTH_CODES = {121010, 121011}
 
 
 class DjiAuthError(Exception):
     """Het member-token is ongeldig of verlopen; opnieuw inloggen is nodig."""
+
+
+def _response_code(body):
+    """Cloud-statuscode: result.code (actuele vorm) of anders een code op het hoogste niveau."""
+    if not isinstance(body, dict):
+        return None
+    result = body.get("result")
+    code = result.get("code") if isinstance(result, dict) else None
+    return code if code is not None else body.get("code")
 
 
 def check_auth(r):
@@ -25,11 +35,13 @@ def check_auth(r):
     if r.status_code in (401, 403):
         raise DjiAuthError("HTTP %s" % r.status_code)
     try:
-        code = r.json().get("code")
+        body = r.json()
     except Exception:
         return
+    code = _response_code(body)
     if code is not None and str(code).isdigit() and int(code) in AUTH_CODES:
-        raise DjiAuthError(str(r.json().get("message") or code))
+        result = body.get("result") if isinstance(body.get("result"), dict) else body
+        raise DjiAuthError(str(result.get("message") or code))
 
 
 class RestClient:
