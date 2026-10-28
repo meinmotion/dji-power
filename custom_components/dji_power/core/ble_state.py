@@ -14,6 +14,8 @@ Enums (== cloud): lamp state 1=uit/2=aan/3=SOS; poort state 1=aan/2=uit.
 """
 from __future__ import annotations
 
+import re
+
 # Poort-labels (groep,index) -> naam, uit de cloud-normalisatie.
 PORT_NAMES = {
     (2, 1): "AC-uitgang",
@@ -135,3 +137,21 @@ def parse_interfaces(payload: bytes) -> list[dict]:
                 ports.append({"seq": seq, "type": typ, "sw": sw,
                               "output": o, "input": i})
     return [{"list": ports}] if ports else []
+
+
+_VERSION_RE = re.compile(rb"\d{2}\.\d{2}\.\d{4}")
+
+
+def parse_info(payload: bytes) -> dict:
+    """Firmwareversies uit de 0x62 device-info-push.
+
+    De push bevat twee versiestrings; de volgorde is dezelfde als in het cloud-settings-object
+    (geverifieerd 2026-10-28): eerst firm_ver (hoofdfirmware), dan wireless_firm_ver.
+    """
+    found = [m.decode("ascii") for m in _VERSION_RE.findall(payload)]
+    out = {}
+    if len(found) >= 1:
+        out["fw_version"] = found[0]
+    if len(found) >= 2:
+        out["wireless_fw_version"] = found[1]
+    return out

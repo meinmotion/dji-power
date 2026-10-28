@@ -16,9 +16,11 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .const import DOMAIN, MODE_BLE, MODE_CLOUD
+from .const import CONF_MODEL, CONF_PAIR_UUID, DOMAIN, MODE_BLE, MODE_CLOUD, entry_value
+from .core.devices import display_model, model_from_adv_name, parse_device_list
 from .core.rest import DjiAuthError
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ class DjiPowerDataUpdateCoordinator(DataUpdateCoordinator):
         self.hub = hub
         self.mode = mode
         self.ports = []
+        self.device_model: str | None = None      # voor de device-info; None = "Power"
+        self._applied_fw: str | None = None
         self._unsub = None
         self._ble_task: asyncio.Task | None = None
         if mode == MODE_CLOUD:
@@ -65,7 +69,23 @@ class DjiPowerDataUpdateCoordinator(DataUpdateCoordinator):
     @callback
     def _on_push(self, state: dict) -> None:
         """Aangeroepen vanuit de MQTT-thread of BLE-callback; marshalt naar de event-loop."""
-        self.hass.loop.call_soon_threadsafe(self.async_set_updated_data, dict(state))
+        self.hass.loop.call_soon_threadsafe(self._apply_push, dict(state))
+
+    @callback
+    def _apply_push(self, state: dict) -> None:
+        self.async_set_updated_data(state)
+        self._sync_firmware(state)
+
+    @callback
+    def _sync_firmware(self, state: dict) -> None:
+        """De firmwareversie kan na het aanmaken van de entiteiten pas binnenkomen (Bluetooth)."""
+        fw = state.get("fw_version")
+        if not fw or fw == self._applied_fw:
+            return
+        device = dr.async_get(self.hass).async_get_device(identifiers={(DOMAIN, self.hub.sn)})
+        if device is not None:
+            dr.async_get(self.hass).async_update_device(device.id, sw_version=fw)
+            self._applied_fw = fw
 
     @callback
     def _on_connect_change(self, _connected: bool) -> None:
@@ -85,7 +105,24 @@ class DjiPowerDataUpdateCoordinator(DataUpdateCoordinator):
             await self.async_config_entry_first_refresh()
             await self._start_cloud()
 
+    async def _resolve_model(self) -> None:
+        """Modelnaam voor de device-info: opgeslagen waarde, anders cloud-lijst, anders adv-naam."""
+        model = entry_value(self.config_entry, CONF_MODEL)
+        if not model and self.mode == MODE_CLOUD:
+            def fetch():
+                try:
+                    return parse_device_list(self.hub.rest.get_device_list())
+                except Exception:  # noqa: BLE001
+                    return []
+            for dev in await self.hass.async_add_executor_job(fetch):
+                if dev.sn == self.hub.sn:
+                    model = display_model(dev.name)
+        if not model:
+            model = model_from_adv_name(entry_value(self.config_entry, CONF_PAIR_UUID))
+        self.device_model = model
+
     async def _start_cloud(self) -> None:
+        await self._resolve_model()
         try:
             self.ports = await self.hass.async_add_executor_job(self.hub.discover_ports)
         except Exception as err:  # noqa: BLE001
@@ -95,6 +132,7 @@ class DjiPowerDataUpdateCoordinator(DataUpdateCoordinator):
         await self.hass.async_add_executor_job(self.hub.start)
 
     async def _start_ble(self) -> None:
+        await self._resolve_model()
         first = asyncio.Event()
 
         def on_first(_state):
@@ -116,7 +154,7 @@ class DjiPowerDataUpdateCoordinator(DataUpdateCoordinator):
         finally:
             unsub_first()
         self.ports = self.hub.discover_ports()
-        self.async_set_updated_data(dict(self.hub.state))
+        self._apply_push(dict(self.hub.state))
 
     async def async_stop(self) -> None:
         if self._unsub is not None:

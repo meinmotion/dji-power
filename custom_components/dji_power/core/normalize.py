@@ -35,10 +35,16 @@ def normalize_osd(host):
 def normalize_state(host):
     """method:device_state (of het settings-object) -> lamp + poort-standen.
 
-    Retour bevat, indien aanwezig: light_pct, light_on, light_fx, en per poort
-    port_<type>_<seq> = 'on'/'off'.
+    Retour bevat, indien aanwezig: light_pct, light_on, light_fx, per poort
+    port_<type>_<seq> = 'on'/'off', en fw_version / wireless_fw_version (alleen in het volledige
+    settings-object: base_info.data.firm_ver / wireless_firm_ver).
     """
     out = {}
+    info = ((host.get("base_info") or {}).get("data")) or {}
+    if info.get("firm_ver"):
+        out["fw_version"] = info["firm_ver"]
+    if info.get("wireless_firm_ver"):
+        out["wireless_fw_version"] = info["wireless_firm_ver"]
     light = (host.get("light") or {}).get("data")
     if light:
         st = light.get("state", 0)   # 1=uit, 2=aan, 3=SOS

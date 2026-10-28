@@ -196,6 +196,15 @@ class AsyncBleHub:
             _LOGGER.debug("disconnect faalde", exc_info=True)
 
     def _ingest(self, fr):
+        if fr.cmd_id == proto.CMD_INFO:
+            # Device-info (firmware). Bewust géén listener-aanroep: dit frame bevat geen
+            # accu/poorten, dus het mag niet als "eerste data" tellen. De waarden gaan mee
+            # met de eerstvolgende telemetrie-push.
+            info = ble_state.parse_info(fr.payload)
+            if info:
+                with self._lock:
+                    self._state.update(info)
+            return
         # elke push (0x60-state of 0x61-telemetrie) bijwerken in de snapshot
         if fr.cmd_id in (proto.CMD_STATE, proto.CMD_PUSH) and len(fr.payload) > 40:
             osd = ble_state.parse_osd(fr.payload)

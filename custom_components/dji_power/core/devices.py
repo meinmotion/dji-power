@@ -7,6 +7,7 @@ automatisch; dit is de basis van de keuze cloud/Bluetooth in de HA-config flow.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 
@@ -52,3 +53,22 @@ def parse_device_list(data) -> list[BoundDevice]:
             pair_key=pair.get("pair_key") or None,
         ))
     return out
+
+
+_ADV_RE = re.compile(r"^Power(?P<num>\d{3,4})(?P<rest>[A-Za-z0-9]*)-[0-9A-Za-z]{4,8}$")
+
+
+def model_from_adv_name(name: str | None) -> str | None:
+    """'Power1000Mini-110QPR' -> 'Power 1000 Mini' (zonder fabrikant; die staat apart)."""
+    m = _ADV_RE.match(name or "")
+    if not m:
+        return None
+    rest = " ".join(re.findall(r"[A-Z][a-z]+|[A-Z]\d*|\d+", m.group("rest")))
+    return " ".join(x for x in ("Power", m.group("num"), rest) if x)
+
+
+def display_model(cloud_name: str | None) -> str | None:
+    """'DJI Power 1000 Mini' -> 'Power 1000 Mini' (de fabrikant 'DJI' staat al in de device-info)."""
+    if not cloud_name:
+        return None
+    return re.sub(r"^DJI\s+", "", cloud_name.strip()) or None

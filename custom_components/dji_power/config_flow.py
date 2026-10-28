@@ -25,6 +25,7 @@ from .const import (
     CONF_KEEP_TOKEN,
     CONF_MEMBER_TOKEN,
     CONF_MODE,
+    CONF_MODEL,
     CONF_PAIR_KEY,
     CONF_PAIR_UUID,
     CONF_SN,
@@ -33,7 +34,7 @@ from .const import (
     MODE_CLOUD,
     entry_value,
 )
-from .core.devices import BoundDevice, parse_device_list
+from .core.devices import BoundDevice, display_model, parse_device_list
 from .core.rest import DjiAuthError, RestClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -232,6 +233,8 @@ class DjiPowerConfigFlow(ConfigFlow, domain=DOMAIN):
             data[CONF_PAIR_KEY] = device.pair_key
         if device.pair_uuid:
             data[CONF_PAIR_UUID] = device.pair_uuid
+        if self._token and device.device_type is not None and display_model(device.name):
+            data[CONF_MODEL] = display_model(device.name)      # alleen als de naam uit de cloud komt
         if address:
             data[CONF_BLE_ADDRESS] = address
         return self.async_create_entry(title=f"DJI Power {device.sn}", data=data)
@@ -314,6 +317,8 @@ class DjiPowerOptionsFlow(OptionsFlow):
                         errors["base"] = "wrong_account"
                     else:
                         options[CONF_MEMBER_TOKEN] = new_token
+                        if display_model(match.name):
+                            options[CONF_MODEL] = display_model(match.name)
                         if match.pair_key:
                             options[CONF_PAIR_KEY] = match.pair_key
                         if match.pair_uuid:

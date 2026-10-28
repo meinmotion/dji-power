@@ -14,13 +14,17 @@ class DjiPowerEntity(CoordinatorEntity[DjiPowerDataUpdateCoordinator]):
     def __init__(self, coordinator: DjiPowerDataUpdateCoordinator) -> None:
         super().__init__(coordinator)
         sn = coordinator.hub.sn
-        self._attr_device_info = DeviceInfo(
+        info = DeviceInfo(
             identifiers={(DOMAIN, sn)},
             name="DJI Power",
             manufacturer="DJI",
-            model="Power",
+            model=coordinator.device_model or "Power",
             serial_number=sn,
         )
+        fw = (coordinator.data or {}).get("fw_version")
+        if fw:                       # alleen meegeven als bekend: None zou een bestaande waarde wissen
+            info["sw_version"] = fw
+        self._attr_device_info = info
 
     @property
     def available(self) -> bool:
