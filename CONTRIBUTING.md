@@ -21,3 +21,8 @@ cannot be pushed to directly.
 
 Open an issue with your Home Assistant version, the connection mode, and the relevant log lines
 (enable debug logging for `custom_components.dji_power`).
+
+## License
+
+By contributing you agree that your contribution is licensed under the
+[Apache License 2.0](LICENSE), the same license as the rest of the project.

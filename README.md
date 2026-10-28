@@ -206,3 +206,9 @@ on Home Assistant's own flow engine with a mocked cloud.
   reference for the authentication flow.
 - Integration structure inspired by the Roborock integration and
   [Tasshack/dreame-vacuum](https://github.com/Tasshack/dreame-vacuum).
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). Copyright 2026 Remko Posthuma. See
+[NOTICE](NOTICE). Unless you explicitly state otherwise, any contribution you intentionally submit for
+inclusion in this project is licensed under the same terms, without any additional conditions.
